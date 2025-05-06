@@ -13,7 +13,7 @@ struct TIRIGLIBS_API FVectorMath_Base : public FRigVMStruct
 
 	virtual void Execute() {};
 };
-USTRUCT(meta = (DisplayName = "MakeVector", TemplateName = "MakeVectorTemplate", Keywords = "len, product, TiRig, make, vector", Category = "CRFunctions"))
+USTRUCT(meta = (DisplayName = "MakeVector", TemplateName = "MakeVectorTemplate", Keywords = "len, product, TiRig, make, vector", Category = "TIRIG CRFunctions"))
 struct TIRIGLIBS_API FMakeVector : public FVectorMath_Base
 {
 	GENERATED_BODY()
@@ -21,15 +21,19 @@ struct TIRIGLIBS_API FMakeVector : public FVectorMath_Base
 	RIGVM_METHOD()
 		virtual void Execute() override;
 
-	UPROPERTY(meta = (Input))
+	UPROPERTY(meta = (Input, ToolTip = "First input vector"))
 	FVector VectorA = FVector::ZeroVector;
 
-	UPROPERTY(meta = (Input))
+	UPROPERTY(meta = (Input, ToolTip = "Second input vector"))
 	FVector VectorB = FVector::ZeroVector;
 
-	UPROPERTY(meta = (Input))
-	bool bIsRotationNormalized = false;
+	UPROPERTY(meta = (Input, ToolTip = "Normalize vectors before operation"))
+	bool bNormalized = false;
+	UPROPERTY(meta = (Input, ToolTip = "Output vector length instead of difference"))
+	bool bGetLen = false;
 
-	UPROPERTY(meta = (Output))
-	float Result = 0.f;
+	UPROPERTY(meta = (Output, ToolTip = "Output vector "))
+	FVector OutputVector = FVector(0.f,0.f,0.f);
+	UPROPERTY(meta = (Output, ToolTip = "Output len "))
+	float len = 1.0f;
 };

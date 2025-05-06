@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "RigVMCore/RigVMStruct.h"
+#include "ControlRig.h"
 #include "CRFunctionLibs.generated.h"
 
 USTRUCT(meta = (Abstract, NodeColor = "0.60 0.00 1.00"))
@@ -36,4 +37,25 @@ struct TIRIGLIBS_API FMakeVector : public FVectorMath_Base
 	FVector OutputVector = FVector(0.f,0.f,0.f);
 	UPROPERTY(meta = (Output, ToolTip = "Output len "))
 	float len = 1.0f;
+};
+
+USTRUCT(meta = (DisplayName = "Spawn Controller", Category = "TIRIG CRFunctions"))
+struct TIRIGLIBS_API FSpawnController : public FRigVMStruct
+{
+	GENERATED_BODY()
+
+	RIGVM_METHOD()
+		virtual void Execute() override;
+
+	UPROPERTY(meta = (Input, Constant, CustomWidget = "BoneName"))
+	FName ControllerName;
+
+	UPROPERTY(meta = (Input))
+	FTransform InitialTransform;
+
+	UPROPERTY(meta = (Input))
+	bool bParentToHierarchy = true;
+
+	UPROPERTY(meta = (Output))
+	FRigElementKey CreatedControllerKey;
 };

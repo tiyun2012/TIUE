@@ -17,3 +17,8 @@ FMakeVector_Execute()
 	else
 		len = 1.0f;
 }
+
+FSpawnController_Execute()
+{
+
+}

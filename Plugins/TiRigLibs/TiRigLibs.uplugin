@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "TiRigLibs",
+	"Description": "rig libs",
+	"Category": "Other",
+	"CreatedBy": "NHAT PHAN",
+	"CreatedByURL": "tisun2011@outlook.com",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "TiRigLibs",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}

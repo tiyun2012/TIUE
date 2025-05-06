@@ -34,7 +34,9 @@ public class TiRigLibs : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"CoreUObject",
+                "ControlRig",
+                "RigVM",
+                "CoreUObject",
 				"Engine",
 				"Slate",
 				"SlateCore",

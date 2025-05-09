@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -111,4 +111,90 @@ struct TIRIGLIBS_API FRigUnit_AddParent_dev: public FRigUnit_DynamicHierarchyBas
 	 */
 	UPROPERTY(meta = (Input, ExpandByDefault))
 	FRigElementKey Parent;
+};
+
+
+/**
+ *  Constrains DrivenItem to Driver (parent-like) while optionally caching
+ *  an offset on the first tick.
+ */
+USTRUCT(meta = (DisplayName = "Parent Constraint",
+	Category = "TIRIG|Constraints",
+	Keywords = "Parent,Constraint"))
+	struct FRigUnit_Parent_Constraint : public FRigUnitMutable
+{
+	GENERATED_BODY()
+
+	FRigUnit_Parent_Constraint()
+		: DrivenItem(NAME_None, ERigElementType::Bone)
+		, Driver(NAME_None, ERigElementType::Bone)
+		, MaintainOffset(true)
+		, bInitialized(false)
+		, CachedOffset(FTransform::Identity)
+		, Count_(0)
+	{
+		//ExecuteContext.GetNumExecutions
+		//UE_LOG(LogTemp, Log, TEXT("[DEBUG]: FRigUnit_Parent_Constraint constructor called :%s "),*CachedOffset.ToString());
+	}
+
+	/** Item that will follow Driver */
+	UPROPERTY(meta = (Input))
+	FRigElementKey DrivenItem;
+
+	/** Item that drives the constraint */
+	UPROPERTY(meta = (Input))
+	FRigElementKey Driver;
+
+	/** If true, compute and keep an offset on first tick */
+	UPROPERTY(meta = (Input))
+	bool MaintainOffset;
+
+	/** Flag to track if offset is initialized */
+	UPROPERTY(meta = (Input, Output,Hidden))
+	bool bInitialized;
+
+	/** Internal cache for offset */
+	UPROPERTY(meta = (Transient)) // 
+		FTransform CachedOffset;
+	UPROPERTY(meta = (Input, Output,Hidden))
+	int32 Count_ = 0;
+	RIGVM_METHOD()
+		virtual void Execute() override;
+};
+
+/*
+*  cache transform
+* don once
+*
+*/
+USTRUCT(meta = (DisplayName = "Cache Constraint",
+	Category = "TIRIG|Utilities",
+	Keywords = "Tranform,Cached,do once"))
+	struct FRigUnit_CachedTransform : public FRigUnitMutable
+{
+	GENERATED_BODY()
+
+	FRigUnit_CachedTransform()
+		: CacheTransform(FTransform::Identity)
+		, Count(0)
+		,NumberDo(1)
+	{
+		
+
+		/*
+		*/
+
+	}
+
+	/** Item that will follow Driver */
+	UPROPERTY(meta = (Input,Transient,Output))
+	FTransform CacheTransform;
+	UPROPERTY(meta=(Transient,Output))
+	int32 Count;
+	UPROPERTY(meta = (Transient,OutPut))
+	int32 CountEnd;
+	UPROPERTY(meta = (Input))
+	int32 NumberDo;
+	RIGVM_METHOD()
+		virtual void Execute() override;
 };

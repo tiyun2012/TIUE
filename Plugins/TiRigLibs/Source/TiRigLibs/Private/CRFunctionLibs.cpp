@@ -149,8 +149,74 @@ FRigUnit_CachedTransform_Execute()
         Inc = FVector(Count, Count, Count);
         //UE_LOG(LogTemp, Log, TEXT("[DEBUG]: ---COUNT___ :%s "), *(Inc.ToString()));
         CountEnd = Count;
+        //CachedTransform= UKismetMathLibrary::MakeTransform(FVector(Count,Count,Count),FRotator(),FVector());
+        CachedTransform = CacheTransform;
         return;
     }
+	//CachedTransform = UKismetMathLibrary::MakeTransform(FVector(Count, Count, Count), FRotator(), FVector());
 
     
+}
+
+FMyRigUnit_CCDIK_Execute()
+{
+
+    DECLARE_SCOPE_HIERARCHICAL_COUNTER_FUNC();
+
+    URigHierarchy* Hierarchy = ExecuteContext.Hierarchy;
+    if (!Hierarchy || BoneChain.Num() < 2)
+    {
+        
+        return;
+    }
+    const FVector TargetPos = EffectorTransform.GetLocation();
+    for (int32 Iter = 0; Iter < MaxIterations; ++Iter)
+    {
+        bool bDidSomething = false;
+
+        for (int32 i = BoneChain.Num() - 2; i >= 0; --i)
+        {
+            const FRigElementKey& BoneKey = BoneChain[i];
+            const FRigElementKey& EffKey = BoneChain.Last();
+
+            FTransform BoneGlobal = Hierarchy->GetGlobalTransform(BoneKey);
+            FTransform EffGlobal = Hierarchy->GetGlobalTransform(EffKey);
+
+            const FVector BonePos = BoneGlobal.GetLocation();
+            const FVector EffPos = EffGlobal.GetLocation();
+
+            FVector ToEff = EffPos - BonePos;
+            FVector ToTarg = TargetPos - BonePos;
+            if (ToEff.IsNearlyZero() || ToTarg.IsNearlyZero())
+            {
+                continue;
+            }
+            ToEff.Normalize();
+            ToTarg.Normalize();
+
+            float CosAngle = FVector::DotProduct(ToEff, ToTarg);
+            float Angle = FMath::Acos(FMath::Clamp(CosAngle, -1.f, 1.f));
+            if (Angle <= FMath::DegreesToRadians(Precision))
+            {
+                continue;
+            }
+
+            const FVector Axis = FVector::CrossProduct(ToEff, ToTarg).GetSafeNormal();
+            const FQuat   DeltaRot = FQuat(Axis, Angle);
+
+            FQuat NewQuat = (DeltaRot * BoneGlobal.GetRotation()).GetNormalized();
+            BoneGlobal.SetRotation(NewQuat);
+
+            Hierarchy->SetGlobalTransform(BoneKey, BoneGlobal, bPropagateToChildren);
+
+            bDidSomething = true;
+        }
+
+        const FVector NewEffPos = Hierarchy->GetGlobalTransform(BoneChain.Last()).GetLocation();
+        if (!bDidSomething || FVector::Dist(NewEffPos, TargetPos) <= Precision)
+        {
+            break;
+        }
+    }
+
 }

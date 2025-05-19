@@ -167,7 +167,7 @@ USTRUCT(meta = (DisplayName = "Parent Constraint",
 * don once
 *
 */
-USTRUCT(meta = (DisplayName = "Cache Constraint",
+USTRUCT(meta = (DisplayName = "CacheTransform",
 	Category = "TIRIG|Utilities",
 	Keywords = "Tranform,Cached,do once"))
 	struct FRigUnit_CachedTransform : public FRigUnitMutable
@@ -176,6 +176,7 @@ USTRUCT(meta = (DisplayName = "Cache Constraint",
 
 	FRigUnit_CachedTransform()
 		: CacheTransform(FTransform::Identity)
+		, CachedTransform(FTransform::Identity)
 		, Count(0)
 		,NumberDo(1)
 	{
@@ -187,14 +188,60 @@ USTRUCT(meta = (DisplayName = "Cache Constraint",
 	}
 
 	/** Item that will follow Driver */
-	UPROPERTY(meta = (Input,Transient,Output))
+	UPROPERTY(meta = (Input))
 	FTransform CacheTransform;
+
 	UPROPERTY(meta=(Transient,Output))
+	FTransform CachedTransform;
+	UPROPERTY(meta = (Output))
+
 	int32 Count;
 	UPROPERTY(meta = (Transient,OutPut))
 	int32 CountEnd;
-	UPROPERTY(meta = (Input))
+
+	UPROPERTY(meta = (Input,ToolTip="cached after NumberDo execute"))
 	int32 NumberDo;
+
+	RIGVM_METHOD()
+		virtual void Execute() override;
+};
+
+/**
+ * A simple CCDIK implementation as a Control Rig unit.
+ */
+USTRUCT(meta = (DisplayName = "My CCDIK", Category = "TIRIG|Custom IK", Keywords = "CCDIK,IK"))
+struct FMyRigUnit_CCDIK : public FRigUnitMutable
+{
+	GENERATED_BODY()
+
+	FMyRigUnit_CCDIK()
+		:EffectorTransform(FTransform::Identity)
+		, Precision(1.f)
+		, MaxIterations(5)
+		, bPropagateToChildren(false)
+	{
+	}
+	/** Ordered list of bone names from root → effector */
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKeyCollection BoneChain;
+	
+	/** Desired world transform of the effector */
+	UPROPERTY(meta = (Input))
+	FTransform EffectorTransform;
+
+	/** Stopping distance in Unreal units */
+	UPROPERTY(meta = (Input, UIMin = "0.01", UIMax = "10.0"))
+	float Precision;
+
+	/** Maximum number of CCD iterations */
+	UPROPERTY(meta = (Input, UIMin = "1", UIMax = "20"))
+	int32 MaxIterations;
+
+	/** If true, child bones will be affected by upstream rotations */
+	UPROPERTY(meta = (Input))
+	bool bPropagateToChildren;
+
+	// Executes once per Evaluate() call
 	RIGVM_METHOD()
 		virtual void Execute() override;
 };

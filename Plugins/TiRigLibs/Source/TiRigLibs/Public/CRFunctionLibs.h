@@ -216,9 +216,10 @@ struct FMyRigUnit_CCDIK : public FRigUnitMutable
 
 	FMyRigUnit_CCDIK()
 		:EffectorTransform(FTransform::Identity)
-		, Precision(1.f)
+		, Precision(0.1f)
 		, MaxIterations(5)
 		, bPropagateToChildren(false)
+		, bDebug(false)
 	{
 	}
 	/** Ordered list of bone names from root → effector */
@@ -230,18 +231,76 @@ struct FMyRigUnit_CCDIK : public FRigUnitMutable
 	FTransform EffectorTransform;
 
 	/** Stopping distance in Unreal units */
-	UPROPERTY(meta = (Input, UIMin = "0.01", UIMax = "10.0"))
+	UPROPERTY(meta = (Input, UIMin = "0.001", UIMax = "1.0"))
 	float Precision;
 
 	/** Maximum number of CCD iterations */
-	UPROPERTY(meta = (Input, UIMin = "1", UIMax = "20"))
+	UPROPERTY(meta = (Input, UIMin = "1", UIMax = "100"))
 	int32 MaxIterations;
-
+	/**
+	 * Bias exponent for distributing angle.
+	 *   0 = uniform,
+	 *  >0 = more rotation on bones near the root,
+	 *  <0 = more rotation on bones near the effector
+	 */
+	UPROPERTY(meta = (Input, UIMin = "-5.0", UIMax = "5.0"))
+	float RootBias;
 	/** If true, child bones will be affected by upstream rotations */
 	UPROPERTY(meta = (Input))
 	bool bPropagateToChildren;
+	UPROPERTY(meta = (Input))
+	bool bDebug;
 
 	// Executes once per Evaluate() call
+	RIGVM_METHOD()
+		virtual void Execute() override;
+};
+
+USTRUCT(meta = (DisplayName = "Two Bone IK Custom", Category = "TIRIG|Hierarchy", Keywords = "IK, Two Bone"))
+struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
+{
+	GENERATED_BODY()
+
+	FRigUnit_TwoBoneIKCustom()
+		: Target(FVector::ZeroVector)
+		, PoleVectorTarget(FVector::UpVector)
+		, bDebug(true)
+		, bPropagateToChildren(true)
+		, DebugCubeSize(1.0f)
+	{
+	}
+
+	/** The root bone of the chain (P0) */
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey BoneRoot;
+
+	/** The middle joint of the chain (P1) */
+	UPROPERTY(meta = (Input))
+	FRigElementKey BoneMid;
+
+	/** The end joint of the chain (P2) */
+	UPROPERTY(meta = (Input))
+	FRigElementKey BoneEnd;
+
+	/** World-space position you want the end to reach */
+	UPROPERTY(meta = (Input))
+	FVector Target;
+
+	/** World-space “elbow” direction */
+	UPROPERTY(meta = (Input))
+	FVector PoleVectorTarget;
+
+
+
+	/** If true, propagate the change down the hierarchy */
+	UPROPERTY(meta = (Input))
+	bool bPropagateToChildren;
+	UPROPERTY(meta = (Input))
+	bool bDebug;
+	// Executes once per Evaluate() call
+	/** Half-extent of the debug cubes */
+	UPROPERTY(meta = (Input))
+	float DebugCubeSize;
 	RIGVM_METHOD()
 		virtual void Execute() override;
 };

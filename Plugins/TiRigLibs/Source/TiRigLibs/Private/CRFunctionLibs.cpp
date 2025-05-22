@@ -298,63 +298,85 @@ FMyRigUnit_CCDIK_Execute()
 
 FRigUnit_TwoBoneIKCustom_Execute()
 {
-	DECLARE_SCOPE_HIERARCHICAL_COUNTER_FUNC()
+    DECLARE_SCOPE_HIERARCHICAL_COUNTER_FUNC();
     URigHierarchy* Hierarchy = ExecuteContext.Hierarchy;
     if (!Hierarchy) return;
 
-    // 1) Read current globals
+    // clamp stretchy
+
+    // 1) Read initial (default) and current globals
+    const FVector P0Init = Hierarchy->GetGlobalTransform(BoneRoot, true).GetLocation();
+    const FVector P1Init = Hierarchy->GetGlobalTransform(BoneMid, true).GetLocation();
+    const FVector P2Init = Hierarchy->GetGlobalTransform(BoneEnd, true).GetLocation();
+
     const FTransform RootXf = Hierarchy->GetGlobalTransform(BoneRoot);
     const FTransform MidXf = Hierarchy->GetGlobalTransform(BoneMid);
+    const FVector    P0 = RootXf.GetLocation();
+    const FVector    P1 = MidXf.GetLocation();
+    const FVector    P2 = Hierarchy->GetGlobalTransform(BoneEnd).GetLocation();
 
-    const FVector P0 = RootXf.GetLocation();
-    const FVector P1 = MidXf.GetLocation();
+    // 2) Pole‐distances
+    const float joint1Pole = (PoleVectorTarget - P0).Size();
+    const float joint2Pole = (PoleVectorTarget - P2).Size();
 
-    // 2) Bone lengths & distance clamp
-    const float L1 = (P1 - P0).Size();
-    const FVector P2Orig = Hierarchy->GetGlobalTransform(BoneEnd).GetLocation();
-    const float L2 = (P2Orig - P1).Size();
+    // 3) Unscaled lengths (dynamic vs initial)
+    const float dynL1 = (P1 - P0).Size();
+    const float dynL2 = (P2 - P1).Size();
+    const float initL1 = (P1Init - P0Init).Size();
+    const float initL2 = (P2Init - P1Init).Size();
+    const float initTotal = initL1 + initL2;
 
+    // 4) Blend between scaled length and pole‐distance
+    const float blendedL1 = FMath::Lerp(initL1 * FirstBoneScale, joint1Pole, PolePin);
+    const float blendedL2 = FMath::Lerp(initL2 * SecondBoneScale, joint2Pole, PolePin);
+
+    // 5) Target vector & raw distance
     const FVector ToTarget = Target - P0;
     const float   Dist = ToTarget.Size();
-    const float   MinD = FMath::Max(KINDA_SMALL_NUMBER, FMath::Abs(L1 - L2));
-    const float   MaxD = FMath::Max(KINDA_SMALL_NUMBER, L1 + L2);
-    const float   ClampedD = FMath::Clamp(Dist, MinD, MaxD);
 
-    // 3) Law of cosines for root angle
-    const float Cos0 = (ClampedD * ClampedD + L1 * L1 - L2 * L2) / (2 * ClampedD * L1);
-    const float Angle0 = FMath::Acos(FMath::Clamp(Cos0, -1.f, 1.f));
+    // 6) Stretchy‐blend towards keeping proportions of initTotal
+	const float L1= (Dist > (blendedL1+ blendedL2)) ? ((Dist*blendedL1/ (blendedL1+blendedL2))*Stretchy+(1-Stretchy)* blendedL1) : blendedL1;
+    //const float L1 = FMath::Lerp(blendedL1, (initL1 / initTotal) * Dist, Stretchy);
+    const float L2 = (Dist > (blendedL1 + blendedL2)) ? ((Dist * blendedL2 / (blendedL1 + blendedL2)) * Stretchy + (1 - Stretchy) * blendedL2) : blendedL2;
 
-    // 4) Compute pole-vector direction from root to PoleVectorTarget
-    FVector PoleDir = (PoleVectorTarget - P0);
-    if (PoleDir.SizeSquared() < KINDA_SMALL_NUMBER)
-    {
-        // fallback if target coincides
-        PoleDir = FVector::UpVector;
-    }
-    PoleDir.Normalize();
+    //const float L2 = FMath::Lerp(blendedL2, (initL2 / initTotal) * Dist, Stretchy);
 
-    // 5) Build bend-plane basis
+    // 7) Clamp target distance against L1+L2
+    const float MinD = FMath::Max(KINDA_SMALL_NUMBER, FMath::Abs(L1 - L2));
+    const float MaxD = L1 + L2;
+    const float ClampedD = FMath::Clamp(Dist, MinD, MaxD);
+
+    // 8) Law of cosines for the shoulder angle
+    const float Cos0Value = (ClampedD * ClampedD + L1 * L1 - L2 * L2) / (2 * ClampedD * L1);
+    const float Angle0 = FMath::Acos(FMath::Clamp(Cos0Value, -1.f, 1.f));
+
+    // 9) Compute pole‐dir
+    FVector poleDir = PoleVectorTarget - P0;
+    if (poleDir.SizeSquared() < KINDA_SMALL_NUMBER) poleDir = FVector::UpVector;
+    poleDir.Normalize();
+
+    // 10) Build bend‐plane basis
     const FVector Dir = (Dist > KINDA_SMALL_NUMBER) ? ToTarget / Dist : FVector::ForwardVector;
-    const FVector Normal = FVector::CrossProduct(Dir, PoleDir).GetSafeNormal();
+    const FVector Normal = FVector::CrossProduct(Dir, poleDir).GetSafeNormal();
     const FVector BiTangent = FVector::CrossProduct(Normal, Dir).GetSafeNormal();
 
-    // 6) Desired first-bone dir
+    // 11) Desired first‐bone direction
     const FVector DesiredDir1 = Dir * FMath::Cos(Angle0)
         + BiTangent * FMath::Sin(Angle0);
 
-    // 7) Root rotation
+    // 12) Shoulder (root) rotation
     const FVector CurrDir1 = (P1 - P0).GetSafeNormal();
     const FQuat   RootRot = FQuat::FindBetweenNormals(CurrDir1, DesiredDir1);
 
-    // 8) New P1
+    // 13) New mid‐joint position
     const FVector NewP1 = P0 + RootRot.RotateVector(CurrDir1 * L1);
 
-    // 9) Mid rotation in world-space
-    const FVector CurrDir2Rot = RootRot.RotateVector((P2Orig - P1).GetSafeNormal());
+    // 14) Elbow (mid) rotation in world space
+    const FVector CurrDir2Rot = RootRot.RotateVector((P2 - P1).GetSafeNormal());
     const FVector DesiredDir2 = (Target - NewP1).GetSafeNormal();
     const FQuat   MidRot = FQuat::FindBetweenNormals(CurrDir2Rot, DesiredDir2);
 
-    // 10) Apply root (no propagate)
+    // 15) Apply Root (no propagate)
     {
         FTransform NewRootXf = RootXf;
         NewRootXf.SetRotation(RootRot * RootXf.GetRotation());
@@ -366,7 +388,7 @@ FRigUnit_TwoBoneIKCustom_Execute()
         );
     }
 
-    // 11) Apply mid (then propagate)
+    // 16) Apply Mid (no propagate)
     {
         FQuat MidGlobalQuat = RootRot * MidXf.GetRotation();
         MidGlobalQuat = MidRot * MidGlobalQuat;
@@ -379,24 +401,41 @@ FRigUnit_TwoBoneIKCustom_Execute()
             BoneMid,
             NewMidXf,
             /*bInitial=*/false,
-            /*bPropagateToChildren=*/bPropagateToChildren
+            /*bPropagateToChildren=*/false
         );
     }
 
-    // 12) Debug
+    // 17) Apply End manually based on L2
+    {
+        // compute new end position
+        const FVector NewEndPos = NewP1 + DesiredDir2 * L2;
+
+        FTransform NewEndXf = Hierarchy->GetGlobalTransform(BoneEnd);
+        NewEndXf.SetLocation(NewEndPos);
+        // (optionally set NewEndXf.SetRotation(...) if you need end orientation)
+
+        Hierarchy->SetGlobalTransform(
+            BoneEnd,
+            NewEndXf,
+            /*bInitial=*/false,
+            /*bPropagateToChildren=*/false
+        );
+    }
+
+    // 18) Debug drawing
     if (bDebug)
     {
         if (UWorld* World = Hierarchy->GetWorld())
         {
-            // a) new end position
-            const FVector NewP2 = Hierarchy->GetGlobalTransform(BoneEnd).GetLocation();
+            // re‐use NewEndPos from above
+            const FVector NewP2 = NewP1 + DesiredDir2 * L2;
 
-            // b) draw trip line: PoleVectorTarget → P0 → NewP1 → NewP2
-            DrawDebugLine(World, PoleVectorTarget, P0, FColor::Yellow, false, -1.f, 0, 0.0f);
-            DrawDebugLine(World, P0, NewP1, FColor::Yellow, false, -1.f, 0, 0.0f);
-            DrawDebugLine(World, NewP1, NewP2, FColor::Yellow, false, -1.f, 0, 0.0f);
+            // trip-line: PoleTarget → P0 → NewP1 → NewP2
+            DrawDebugLine(World, PoleVectorTarget, P0, FColor::Yellow, false, -1.f, 0, Thickness);
+            DrawDebugLine(World, P0, NewP1, FColor::Yellow, false, -1.f, 0, Thickness);
+            DrawDebugLine(World, NewP1, NewP2, FColor::Yellow, false, -1.f, 0, Thickness);
 
-            // c) min/max reach cubes
+            // reach cubes
             const FVector MinPos = P0 + Dir * MinD;
             const FVector MaxPos = P0 + Dir * MaxD;
             const FVector Extents(DebugCubeSize);
@@ -404,5 +443,4 @@ FRigUnit_TwoBoneIKCustom_Execute()
             DrawDebugBox(World, MaxPos, Extents, FColor::Green, false, -1.f, 0, 1.f);
         }
     }
-
 }

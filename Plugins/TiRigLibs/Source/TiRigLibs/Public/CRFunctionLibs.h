@@ -264,9 +264,14 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	FRigUnit_TwoBoneIKCustom()
 		: Target(FVector::ZeroVector)
 		, PoleVectorTarget(FVector::UpVector)
+		, FirstBoneScale(1.f)
+		, SecondBoneScale(1.f)
+		, PolePin(0.f)
+		, Stretchy(0.0f)
 		, bDebug(true)
 		, bPropagateToChildren(true)
 		, DebugCubeSize(1.0f)
+		,Thickness(0.0f)
 	{
 	}
 
@@ -289,9 +294,21 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	/** World-space “elbow” direction */
 	UPROPERTY(meta = (Input))
 	FVector PoleVectorTarget;
+	/** Scale factor for the first bone length (default=1.0) */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "100.0"))
+	float FirstBoneScale;
 
+	/** Scale factor for the second bone length (default=1.0) */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "100.0"))
+	float SecondBoneScale;
 
-
+	/** Blend between original bone length and pole distance (0=use scaled length, 1=use pole distance) */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "1.0"))
+	float PolePin;
+	UPROPERTY(meta=(Input, UIMin = "0.0", UIMax = "1.0"))
+	float Stretchy;
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "2.0"))
+	float Thickness;
 	/** If true, propagate the change down the hierarchy */
 	UPROPERTY(meta = (Input))
 	bool bPropagateToChildren;

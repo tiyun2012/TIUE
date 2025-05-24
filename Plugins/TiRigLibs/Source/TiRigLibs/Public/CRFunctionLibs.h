@@ -262,9 +262,8 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	GENERATED_BODY()
 
 	FRigUnit_TwoBoneIKCustom()
-		: Target(FVector::ZeroVector)
-		, PoleVectorTarget(FVector::UpVector)
-		, FirstBoneScale(1.f)
+		: 
+		FirstBoneScale(1.f)
 		, SecondBoneScale(1.f)
 		, PolePin(0.f)
 		, Stretchy(0.0f)
@@ -273,10 +272,9 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 		, DebugCubeSize(0.01f)
 		,Thickness(0.0f)
 		, bIsCached(false)
-		, AimInitCached(FTransform::Identity)
-		, RootInAimCached(FTransform::Identity)
-		, MidInAimCached(FTransform::Identity)
-		, EndInAimCached(FTransform::Identity)
+		, RootRelativeCached(FTransform::Identity)
+		, MidRelativeCached(FTransform::Identity)
+		, EndRelativeCached(FTransform::Identity)
 		, initL1Cached(1.0f)
 		,initL2Cached(1.0f)
 	{
@@ -299,11 +297,9 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 
 	/** World-space position you want the end to reach */
 	UPROPERTY(meta = (Input))
-	FVector Target;
+	FRigElementKey TargetItem;
 
-	/** World-space “elbow” direction */
-	UPROPERTY(meta = (Input))
-	FVector PoleVectorTarget;
+	
 	/** Scale factor for the first bone length (default=1.0) */
 	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "100.0"))
 	float FirstBoneScale;
@@ -318,26 +314,23 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	UPROPERTY(meta=(Input, UIMin = "0.0", UIMax = "1.0"))
 	float Stretchy;
 	UPROPERTY(meta = (Input))
+	bool bPropagateToChildren;
+	UPROPERTY(meta = (Input))
 	bool bDebug;
 	UPROPERTY(meta = (Input))
 	float DebugCubeSize;
 	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "2.0"))
 	float Thickness;
 	/** If true, propagate the change down the hierarchy */
-	UPROPERTY(meta = (Input))
-	bool bPropagateToChildren;
-	// Executes once per Evaluate() call
-	/** Half-extent of the debug cubes */
 	UPROPERTY()
 	bool bIsCached;
-	UPROPERTY(meta=(Output, Transient))
-	FTransform AimInitCached;
+	
 	UPROPERTY()
-	FTransform RootInAimCached;
+	FTransform RootRelativeCached;
 	UPROPERTY()
-	FTransform MidInAimCached;
+	FTransform MidRelativeCached;
 	UPROPERTY()
-	FTransform EndInAimCached;
+	FTransform EndRelativeCached;
 	UPROPERTY()
 	float initL1Cached;
 	UPROPERTY()

@@ -268,10 +268,17 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 		, SecondBoneScale(1.f)
 		, PolePin(0.f)
 		, Stretchy(0.0f)
-		, bDebug(true)
 		, bPropagateToChildren(true)
-		, DebugCubeSize(1.0f)
+		, bDebug(true)
+		, DebugCubeSize(0.01f)
 		,Thickness(0.0f)
+		, bIsCached(false)
+		, AimInitCached(FTransform::Identity)
+		, RootInAimCached(FTransform::Identity)
+		, MidInAimCached(FTransform::Identity)
+		, EndInAimCached(FTransform::Identity)
+		, initL1Cached(1.0f)
+		,initL2Cached(1.0f)
 	{
 	}
 
@@ -286,6 +293,9 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	/** The end joint of the chain (P2) */
 	UPROPERTY(meta = (Input))
 	FRigElementKey BoneEnd;
+	/** The end joint of the chain (P2) */
+	UPROPERTY(meta = (Input))
+	FRigElementKey PoleItem;
 
 	/** World-space position you want the end to reach */
 	UPROPERTY(meta = (Input))
@@ -307,17 +317,31 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	float PolePin;
 	UPROPERTY(meta=(Input, UIMin = "0.0", UIMax = "1.0"))
 	float Stretchy;
+	UPROPERTY(meta = (Input))
+	bool bDebug;
+	UPROPERTY(meta = (Input))
+	float DebugCubeSize;
 	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "2.0"))
 	float Thickness;
 	/** If true, propagate the change down the hierarchy */
 	UPROPERTY(meta = (Input))
 	bool bPropagateToChildren;
-	UPROPERTY(meta = (Input))
-	bool bDebug;
 	// Executes once per Evaluate() call
 	/** Half-extent of the debug cubes */
-	UPROPERTY(meta = (Input))
-	float DebugCubeSize;
+	UPROPERTY()
+	bool bIsCached;
+	UPROPERTY(meta=(Output, Transient))
+	FTransform AimInitCached;
+	UPROPERTY()
+	FTransform RootInAimCached;
+	UPROPERTY()
+	FTransform MidInAimCached;
+	UPROPERTY()
+	FTransform EndInAimCached;
+	UPROPERTY()
+	float initL1Cached;
+	UPROPERTY()
+	float initL2Cached;
 	RIGVM_METHOD()
 		virtual void Execute() override;
 };

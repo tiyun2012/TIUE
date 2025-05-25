@@ -269,12 +269,12 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 		, Stretchy(0.0f)
 		, bPropagateToChildren(true)
 		, bDebug(true)
-		, DebugCubeSize(0.01f)
 		,Thickness(0.0f)
 		, bIsCached(false)
 		, RootRelativeCached(FTransform::Identity)
 		, MidRelativeCached(FTransform::Identity)
 		, EndRelativeCached(FTransform::Identity)
+		, P0RootControlRelativeCached(FVector())
 		, initL1Cached(1.0f)
 		,initL2Cached(1.0f)
 	{
@@ -291,6 +291,9 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	/** The end joint of the chain (P2) */
 	UPROPERTY(meta = (Input))
 	FRigElementKey BoneEnd;
+	/** The end joint of the chain (P2) */
+	UPROPERTY(meta = (Input))
+	FRigElementKey ParentControl;
 	/** The end joint of the chain (P2) */
 	UPROPERTY(meta = (Input))
 	FRigElementKey PoleItem;
@@ -317,8 +320,6 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	bool bPropagateToChildren;
 	UPROPERTY(meta = (Input))
 	bool bDebug;
-	UPROPERTY(meta = (Input))
-	float DebugCubeSize;
 	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "2.0"))
 	float Thickness;
 	/** If true, propagate the change down the hierarchy */
@@ -331,6 +332,8 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	FTransform MidRelativeCached;
 	UPROPERTY()
 	FTransform EndRelativeCached;
+	UPROPERTY()
+	FVector P0RootControlRelativeCached;
 	UPROPERTY()
 	float initL1Cached;
 	UPROPERTY()

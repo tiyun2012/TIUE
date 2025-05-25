@@ -339,7 +339,7 @@ FRigUnit_TwoBoneIKCustom_Execute()
 		// compose End joint Initial
 		const FTransform TargetTr = Hierarchy->GetGlobalTransform(TargetItem, true);
 		EndRelativeCached = P2TransformInit * TargetTr.Inverse();
-
+        P0RootControlRelativeCached = (P0TransformInit * (Hierarchy->GetGlobalTransform(ParentControl, true)).Inverse()).GetLocation();
 
 
 
@@ -347,7 +347,8 @@ FRigUnit_TwoBoneIKCustom_Execute()
     }
     //Aim in Runtime
     //Axis
-    const FVector P0 = Hierarchy->GetGlobalTransform(BoneRoot).GetLocation();
+    //const FVector P0 = Hierarchy->GetGlobalTransform(BoneRoot).GetLocation();
+    const FVector P0 = (Hierarchy->GetGlobalTransform(ParentControl)).TransformPosition(P0RootControlRelativeCached);
     const FTransform TargetTr= Hierarchy->GetGlobalTransform(TargetItem);
     const FVector ToTarget = TargetTr.GetLocation() - P0;
     const FVector axisX = ToTarget.GetSafeNormal();
@@ -414,20 +415,20 @@ FRigUnit_TwoBoneIKCustom_Execute()
         if (UWorld* World = Hierarchy->GetWorld())
         {
 			// Draw debug lines
-            DrawDebugLine(World, Pole, P0, FColor::Yellow, false, -1.f, 0, 0.01F);
-            DrawDebugLine(World, P0, P1, FColor::Magenta, false, -1.f, 0, 0.01F);
-            DrawDebugLine(World, P1, P2, FColor::Magenta, false, -1.f, 0, 0.01F);
+            DrawDebugLine(World, Pole, P0, FColor::Cyan, false, -1.f, 0, 0.30F * (Thickness+ 0.0608F));
+            DrawDebugLine(World, P0, P1, FColor::Cyan, false, -1.f, 0, 0.30F * (Thickness + 0.0608F));
+            DrawDebugLine(World, P1, P2, FColor::Cyan, false, -1.f, 0, 0.30F * (Thickness + 0.0608F));
 
-            
-            DrawDebugCoordinateSystem(World, P0, RootTransform.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 0.20F);
-            DrawDebugCoordinateSystem(World, P1, MidTransform.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 0.20F);
-            DrawDebugCoordinateSystem(World, P2, EndTransform.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 0.20F);
+
+            DrawDebugCoordinateSystem(World, P0, RootTransform.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 1.30F * (Thickness + 0.0608F));
+            DrawDebugCoordinateSystem(World, P1, MidTransform.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 1.30F * (Thickness + 0.0608F));
+            DrawDebugCoordinateSystem(World, P2, EndTransform.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 1.30F * (Thickness + 0.0608F));
 
             FMatrix AimMatrix(axisX, axisY, axisZ, P0);
             FTransform AimTransform = FTransform(AimMatrix);
-            DrawDebugLine(World, P0, P2, FColor::Red, false, -1.f, 0, Thickness);
-            DrawDebugLine(World, P0, P0+axisY*2, FColor::Green, false, -1.f, 0, Thickness);
-			DrawDebugLine(World, P0, P0 + axisZ * 2, FColor::Blue, false, -1.f, 0, Thickness);
+            DrawDebugLine(World, P0, P2, FColor::Red, false, -1.f, 0, (Thickness + 0.0608F));
+            DrawDebugLine(World, P0, P0 + axisY * 0.3F * DistJoint1Joint3, FColor::Green, false, -1.f, 0, (Thickness + 0.0608F));
+			//DrawDebugLine(World, P0, P0 + axisZ * 2, FColor::Blue, false, -1.f, 0, Thickness);
         }
     }
     //end code

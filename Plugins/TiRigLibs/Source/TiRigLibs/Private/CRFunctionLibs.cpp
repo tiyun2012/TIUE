@@ -324,7 +324,7 @@ FRigUnit_TwoBoneIKCustom_Execute()
         initL1Cached = (P1Init - P0Init).Size();
         initL2Cached = (P2Init - P1Init).Size();
         //
-        //compose rootInitial
+        ////caculate relative
 		const FVector RootAxisX = (P1Init - P0Init).GetSafeNormal();
 		const FVector RootAxisZ = axisZInit;
 		const FVector RootAxisY = FVector::CrossProduct(RootAxisZ, RootAxisX).GetSafeNormal();
@@ -433,4 +433,111 @@ FRigUnit_TwoBoneIKCustom_Execute()
     }
     //end code
     
+}
+FRigUnit_QuadLegIK_Execute()
+{
+    DECLARE_SCOPE_HIERARCHICAL_COUNTER_FUNC();
+    URigHierarchy* Hierarchy = ExecuteContext.Hierarchy;
+    if (!Hierarchy) return;
+    if (not bIsCached)
+    {
+        
+        FTransform Joint1TrInit = Hierarchy->GetGlobalTransform(Joint1, true);
+        FVector Joint1LoInit = Joint1TrInit.GetLocation();
+        FTransform Joint2TrInit = Hierarchy->GetGlobalTransform(Joint2, true);
+        FVector Joint2LoInit = Joint2TrInit.GetLocation();
+        FTransform Joint3TrInit = Hierarchy->GetGlobalTransform(Joint3, true);
+        FVector Joint3LoInit = Joint3TrInit.GetLocation();
+        FTransform Joint4TrInit = Hierarchy->GetGlobalTransform(Joint4, true);
+        FVector Joint4LoInit = Joint4TrInit.GetLocation();
+        FTransform TargetTrInit = Hierarchy->GetGlobalTransform(TargetItem, true);
+        FVector TargetLoInit = TargetTrInit.GetLocation();
+        FTransform PoleTrInit = Hierarchy->GetGlobalTransform(PoleItem, true);
+        FVector PoleLoInit = Joint1TrInit.GetLocation();
+        // cache
+        Joint1Joint4Dis = (Joint4LoInit - Joint1LoInit).Size();
+        // // Calculate the initial axes based on the initial positions 
+        const FVector AimMatrixAxisXInit = (Joint4LoInit - Joint1LoInit).GetSafeNormal();
+        const FVector RootPoleDir = (PoleLoInit - Joint1LoInit).GetSafeNormal();
+        const FVector AimMatrixAxisZInit = FVector::CrossProduct(AimMatrixAxisXInit, RootPoleDir).GetSafeNormal();
+        const FVector AimMatrixAxisYInit = FVector::CrossProduct(AimMatrixAxisZInit, AimMatrixAxisXInit).GetSafeNormal();
+
+        //   // Assign the input vectors to the matrix columns
+        FMatrix AimMatrixInit(AimMatrixAxisXInit, AimMatrixAxisYInit, AimMatrixAxisZInit, Joint1LoInit);
+
+        ////caculate relative
+            // At joint1
+        const FVector Joint1AxisX = (Joint2LoInit - Joint1LoInit).GetSafeNormal();
+        const FVector Joint1AxisZ = AimMatrixAxisZInit;
+        const FVector Joint1AxisY = FVector::CrossProduct(Joint1AxisZ, Joint1AxisX).GetSafeNormal();
+        FMatrix AtJoint1MatrixInit(Joint1AxisX, Joint1AxisY, Joint1AxisZ, Joint1LoInit);
+        Joint1RelativeCached = Joint1TrInit * FTransform(AtJoint1MatrixInit).Inverse();
+        Joint1LoInParentControlCached = (Joint1TrInit * (Hierarchy->GetGlobalTransform(ParentControl, true)).Inverse()).GetLocation();
+            //At Joint2
+        const FVector Joint2AxisX = (Joint3LoInit - Joint2LoInit).GetSafeNormal();
+        const FVector Joint2AxisZ = AimMatrixAxisZInit;
+        const FVector Joint2AxisY = FVector::CrossProduct(Joint2AxisZ, Joint2AxisX).GetSafeNormal();
+        FMatrix AtJoint2MatrixInit(Joint2AxisX, Joint2AxisY, Joint2AxisZ, Joint2LoInit);
+        Joint2AimCached = FTransform(AtJoint2MatrixInit);
+        Joint2RelativeCached = Joint2TrInit * FTransform(AtJoint2MatrixInit).Inverse();
+        //At Joint3
+        const FVector Joint3AxisX = (Joint4LoInit - Joint3LoInit).GetSafeNormal();
+        const FVector Joint3AxisZ = AimMatrixAxisZInit;
+        const FVector Joint3AxisY = FVector::CrossProduct(Joint3AxisZ, Joint3AxisX).GetSafeNormal();
+        FMatrix AtJoint3MatrixInit(Joint3AxisX, Joint3AxisY, Joint3AxisZ, Joint3LoInit);
+        Joint3AimCached = FTransform(AtJoint3MatrixInit);
+        Joint3RelativeCached = Joint3TrInit * FTransform(AtJoint3MatrixInit).Inverse();
+        
+        bIsCached = true;
+    }
+	if (not (RatioFarthestPoint > 1.0F))
+	{
+		UE_CONTROLRIG_RIGUNIT_REPORT_ERROR(TEXT("[ERROR]: RatioFarthestPoint must be greater than 1."));
+		return;
+	}
+    
+    //runtime
+    // Aim in Runtime
+        //Axis
+    const FVector Joint1Lo = (Hierarchy->GetGlobalTransform(ParentControl)).TransformPosition(Joint1LoInParentControlCached);
+    const FTransform TargetTr = Hierarchy->GetGlobalTransform(TargetItem);
+    const FVector Joint1Target = TargetTr.GetLocation() - Joint1Lo;
+    const FVector AimMatrixAxisX = Joint1Target.GetSafeNormal();
+    //AxisY axisZ Matrix
+    const FVector Pole = Hierarchy->GetGlobalTransform(PoleItem).GetLocation();
+    const FVector Joint1PoleDir = (Pole - Joint1Lo).GetSafeNormal();
+    const FVector AimMatrixAxisZ = FVector::CrossProduct(AimMatrixAxisX, Joint1PoleDir).GetSafeNormal();
+    const FVector AimMatrixAxisY = FVector::CrossProduct(AimMatrixAxisZ, AimMatrixAxisX).GetSafeNormal();
+    FMatrix AimMatrix(AimMatrixAxisX, AimMatrixAxisY, AimMatrixAxisZ,Joint1Lo);
+    FTransform AimTransform(AimMatrix);
+    //
+    
+	//distance
+    float Joint1TargetDis = Joint1Target.Size();
+    float Closest = RatioClosestPoint * Joint1Joint4Dis;
+    float Farthest = RatioFarthestPoint * Joint1Joint4Dis;
+	float subtractDis = Joint1TargetDis - Joint1Joint4Dis;
+    //angle  closest-defaut -farthest =-abs(maxRotateIn)-0-abs(maxRotateout)
+	float joint3Angle =(/* rotatatein */FMath::Clamp((subtractDis/(Closest - Joint1Joint4Dis)),0,1))*(-FMath::Abs(maxRotateIn))
+                        + (/* rotatateOut */FMath::Clamp((subtractDis / (Farthest - Joint1Joint4Dis)), 0, 1)) * (FMath::Abs(maxRotateOut));
+
+    // find Joint2Joint4Dis through cached Transform
+    if (bDebug && bIsCached)
+    {
+        if (UWorld* World = Hierarchy->GetWorld())
+        {
+            DrawDebugPoint(World, Joint1Lo + RatioClosestPoint* Joint1Joint4Dis * AimMatrixAxisX, 5.0F, FColor::Cyan, false, -1.0F, 0);
+            DrawDebugPoint(World, Joint1Lo + RatioFarthestPoint * Joint1Joint4Dis* AimMatrixAxisX, 5.0F, FColor::Cyan, false, -1.0F, 0);
+            
+            DrawDebugLine(World, Joint1Lo, TargetTr.GetLocation(), FColor::Red, false, -1.f, 0, (Thickness + 0.0608F));
+            DrawDebugLine(World, Joint1Lo, Joint1Lo + AimMatrixAxisY * 0.3F * Joint1Joint4Dis, FColor::Green, false, -1.f, 0, (Thickness + 0.0608F));
+           
+            DrawDebugCoordinateSystem(World, Joint2AimCached.GetLocation(), Joint2AimCached.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 1.30F * (Thickness + 0.0608F));
+            DrawDebugCoordinateSystem(World, Joint3AimCached.GetLocation(), Joint3AimCached.GetRotation().Rotator(), 2.0f, false, -1.0F, 0, 1.30F * (Thickness + 0.0608F));
+
+        }
+        UE_CONTROLRIG_RIGUNIT_LOG_MESSAGE(TEXT("[LOG] : %s"), *FString::SanitizeFloat(joint3Angle));
+    }
+
+
 }

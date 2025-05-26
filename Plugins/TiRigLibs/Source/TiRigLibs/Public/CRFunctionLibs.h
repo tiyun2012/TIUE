@@ -291,14 +291,14 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	/** The end joint of the chain (P2) */
 	UPROPERTY(meta = (Input))
 	FRigElementKey BoneEnd;
-	/** The end joint of the chain (P2) */
+	/** The RigElementKey will move root bone */
 	UPROPERTY(meta = (Input))
 	FRigElementKey ParentControl;
-	/** The end joint of the chain (P2) */
+	/** The the RigElement key will be poleVector control */
 	UPROPERTY(meta = (Input))
 	FRigElementKey PoleItem;
 
-	/** World-space position you want the end to reach */
+	/** Target the end joint should try to reach */
 	UPROPERTY(meta = (Input))
 	FRigElementKey TargetItem;
 
@@ -314,6 +314,7 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	/** Blend between original bone length and pole distance (0=use scaled length, 1=use pole distance) */
 	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "1.0"))
 	float PolePin;
+	/** when joints are in the same line, it will be tretch with factor strechy (0= no stretching, 1= will reach target) */
 	UPROPERTY(meta=(Input, UIMin = "0.0", UIMax = "1.0"))
 	float Stretchy;
 	UPROPERTY(meta = (Input))
@@ -338,6 +339,128 @@ struct FRigUnit_TwoBoneIKCustom : public FRigUnitMutable
 	float initL1Cached;
 	UPROPERTY()
 	float initL2Cached;
+	RIGVM_METHOD()
+		virtual void Execute() override;
+};
+
+USTRUCT(meta = (DisplayName = "quadLeg IK ", Category = "TIRIG|Hierarchy", Keywords = "IK, Two Bone,Quad"))
+struct FRigUnit_QuadLegIK : public FRigUnitMutable
+{
+	GENERATED_BODY()
+
+	// Constructor with member initializer list
+	FRigUnit_QuadLegIK()
+		: Joint1(FRigElementKey(NAME_None, ERigElementType::Bone))
+		, Joint2(FRigElementKey(NAME_None, ERigElementType::Bone))
+		, Joint3(FRigElementKey(NAME_None, ERigElementType::Bone))
+		, Joint4(FRigElementKey(NAME_None, ERigElementType::Bone))
+		, ParentControl(FRigElementKey(NAME_None, ERigElementType::Bone))
+		, PoleItem(FRigElementKey(NAME_None, ERigElementType::Bone))
+		, TargetItem(FRigElementKey(NAME_None, ERigElementType::Bone))
+		, bLimitJoint3Rotate(true)
+		, maxRotateIn(10.f)
+		, RatioClosestPoint(0.5f)
+		, maxRotateOut(10.f)
+		, RatioFarthestPoint(1.25f) // Renamed for spelling
+		, FirstBoneScale(1.f)
+		, SecondBoneScale(1.f)
+		, PolePin(0.f)
+		, Stretchy(0.f)
+		, bPropagateToChildren(true)
+		, bDebug(true)
+		, Thickness(0.f)
+		, bIsCached(false)
+		, Joint1Joint4Dis(0.0f)
+		, Joint1RelativeCached(FTransform::Identity)
+		, Joint1LoInParentControlCached(FVector())
+		, Joint2AimCached(FTransform::Identity)
+		, Joint2RelativeCached(FTransform::Identity)
+		, Joint3AimCached(FTransform::Identity)
+		, Joint3RelativeCached(FTransform::Identity)
+	{
+	}
+
+	// Bone references
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey Joint1;
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey Joint2;
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey Joint3;
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey Joint4;
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey ParentControl;
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey PoleItem;
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	FRigElementKey TargetItem;
+
+	/** Limit rotation of Joint3 */
+	UPROPERTY(meta = (Input, ExpandByDefault))
+	bool bLimitJoint3Rotate;
+
+	/** Maximum inward rotation (in degrees) for Joint3 when target is closest to Joint1 (0 = no rotate in) */
+	UPROPERTY(meta = (Input))
+	float maxRotateIn;
+
+	/** Ratio for closest point along the chain (0-1), at which Joint3 will rotate in by maxRotateIn */
+	UPROPERTY(meta = (Input))
+	float RatioClosestPoint;
+
+	/** Maximum outward rotation (in degrees) for Joint3 when target is farthest from Joint1 */
+	UPROPERTY(meta = (Input))
+	float maxRotateOut;
+
+	/** Ratio for farthest point along the chain (0-1), at which Joint3 will rotate out by maxRotateOut */
+	UPROPERTY(meta = (Input))
+	float RatioFarthestPoint; // fixed spelling
+
+	/** Scale for the first bone */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "100.0"))
+	float FirstBoneScale;
+
+	/** Scale for the second bone */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "100.0"))
+	float SecondBoneScale;
+
+	/** Pinning amount for the pole vector (0-1) */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "1.0"))
+	float PolePin;
+
+	/** Amount of stretchiness (0-1) */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "1.0"))
+	float Stretchy;
+
+	/** Whether to propagate changes to children */
+	UPROPERTY(meta = (Input))
+	bool bPropagateToChildren;
+
+	/** Enable debug drawing */
+	UPROPERTY(meta = (Input))
+	bool bDebug;
+
+	/** Debug visualization thickness (0-2) */
+	UPROPERTY(meta = (Input, UIMin = "0.0", UIMax = "2.0"))
+	float Thickness;
+
+	// Internal state cache (should not be exposed to Blueprint)
+	UPROPERTY()
+	bool bIsCached;
+	UPROPERTY()
+	float Joint1Joint4Dis;
+	UPROPERTY()
+	FTransform Joint1RelativeCached;
+	UPROPERTY()
+	FVector Joint1LoInParentControlCached;
+	UPROPERTY()
+	FTransform Joint2AimCached;
+	UPROPERTY()
+	FTransform Joint2RelativeCached;
+	UPROPERTY()
+	FTransform Joint3AimCached;
+	UPROPERTY()
+	FTransform Joint3RelativeCached;
 	RIGVM_METHOD()
 		virtual void Execute() override;
 };
